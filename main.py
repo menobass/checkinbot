@@ -29,6 +29,7 @@ from dataclasses import dataclass
 # Hive blockchain imports (using lighthive)
 try:
     from lighthive.client import Client
+    from lighthive.datastructures import Operation
     from lighthive.exceptions import RPCNodeException
     LIGHTHIVE_AVAILABLE = True
     logging.info("lighthive library imported successfully")
@@ -461,8 +462,8 @@ class HiveEcuadorBot:
                     logger.info(f"DEBUG: Attempting to comment on {post['author']}/{post['permlink']}")
                     logger.info(f"DEBUG: Comment body: {welcome_message}")
                     
-                    # Create comment operation
-                    comment_op = {
+                    # Create comment operation using lighthive Operation class
+                    comment_op = Operation('comment', {
                         "parent_author": post['author'],
                         "parent_permlink": post['permlink'], 
                         "author": self.account_name,
@@ -470,10 +471,10 @@ class HiveEcuadorBot:
                         "title": "",
                         "body": welcome_message,
                         "json_metadata": json.dumps({"app": "checkinecuador/1.0.0"})
-                    }
+                    })
                     
                     # Broadcast comment
-                    self.hive.broadcast([["comment", comment_op]])
+                    self.hive.broadcast(comment_op)
                     
                     logger.info(f"✅ REAL COMMENT POSTED to {post['author']}/{post['permlink']}")
                     return True
@@ -519,16 +520,16 @@ class HiveEcuadorBot:
                     logger.info(f"DEBUG: Memo: {memo}")
                     logger.info(f"DEBUG: Current balance: {current_balance} HBD")
                     
-                    # Create transfer operation
-                    transfer_op = {
-                        "from": self.account_name,
-                        "to": recipient,
-                        "amount": f"{amount:.3f} HBD",
-                        "memo": memo
-                    }
+                    # Create transfer operation using lighthive Operation class
+                    transfer_op = Operation('transfer', {
+                        'from': self.account_name,
+                        'to': recipient,
+                        'amount': f"{amount:.3f} HBD",
+                        'memo': memo
+                    })
                     
                     # Broadcast transfer
-                    self.hive.broadcast([["transfer", transfer_op]])
+                    self.hive.broadcast(transfer_op)
                     
                     logger.info(f"✅ REAL HBD TRANSFER SENT: {amount} HBD to {recipient}")
                     return True
@@ -558,16 +559,16 @@ class HiveEcuadorBot:
                 try:
                     logger.info(f"DEBUG: Attempting to upvote {author}/{permlink} with {weight/100}%")
                     
-                    # Create vote operation
-                    vote_op = {
+                    # Create vote operation using lighthive Operation class
+                    vote_op = Operation('vote', {
                         "voter": self.account_name,
                         "author": author,
                         "permlink": permlink,
                         "weight": weight
-                    }
+                    })
                     
                     # Broadcast vote
-                    self.hive.broadcast([["vote", vote_op]])
+                    self.hive.broadcast(vote_op)
                     
                     logger.info(f"✅ REAL UPVOTE GIVEN: {author}/{permlink} with {weight/100}%")
                     return True
