@@ -1,5 +1,5 @@
-hive-nectar>=0.0.7
+lighthive>=0.4.0
 python-dotenv>=1.0.0
 requests>=2.31.0
 schedule>=1.2.0
-# Switched from lighthive to hive-nectar for better reliability
+# Using lighthive for Hive blockchain interactions

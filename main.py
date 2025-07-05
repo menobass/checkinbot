@@ -26,17 +26,15 @@ from dotenv import load_dotenv
 import requests
 from dataclasses import dataclass
 
-# Hive blockchain imports (hive-nectar uses beem-compatible API)
+# Hive blockchain imports (using lighthive)
 try:
-    from beem import Hive
-    from beem.account import Account
-    from beem.comment import Comment
-    from beem.exceptions import AccountDoesNotExistsException, WalletLocked
-    NECTAR_AVAILABLE = True
-    logging.info("hive-nectar library imported successfully")
+    from lighthive.client import Client
+    from lighthive.exceptions import RPCNodeException
+    LIGHTHIVE_AVAILABLE = True
+    logging.info("lighthive library imported successfully")
 except ImportError:
-    NECTAR_AVAILABLE = False
-    logging.warning("hive-nectar library not available - blockchain transactions will be simulated")
+    LIGHTHIVE_AVAILABLE = False
+    logging.warning("lighthive library not available - blockchain transactions will be simulated")
 
 # Load environment variables
 load_dotenv()
@@ -224,12 +222,12 @@ class HiveEcuadorBot:
         
         # Initialize hive client for blockchain transactions
         self.hive = None
-        if NECTAR_AVAILABLE:
+        if LIGHTHIVE_AVAILABLE:
             try:
-                self.hive = Hive(node=self.hive_node, keys=[self.posting_key, self.active_key])
-                logger.info("Hive-nectar initialized successfully for blockchain transactions")
+                self.hive = Client(nodes=[self.hive_node], keys=[self.posting_key, self.active_key])
+                logger.info("Lighthive initialized successfully for blockchain transactions")
             except Exception as e:
-                logger.error(f"Failed to initialize hive-nectar: {e}")
+                logger.error(f"Failed to initialize lighthive: {e}")
                 self.hive = None
         else:
             logger.warning("No Hive blockchain library available - transactions will be simulated")
@@ -457,26 +455,25 @@ class HiveEcuadorBot:
             
             welcome_message = self.config.get('welcome_message', 'Welcome to Hive Ecuador!')
             
-            # Use hive-nectar for real blockchain transactions
-            if self.hive and NECTAR_AVAILABLE:
+            # Use lighthive for real blockchain transactions
+            if self.hive and LIGHTHIVE_AVAILABLE:
                 try:
-                    # Get the parent post
-                    parent_post = Comment(f"@{post['author']}/{post['permlink']}", hive_instance=self.hive)
-                    
-                    # Create comment
-                    comment_body = welcome_message
-                    comment_permlink = f"re-{post['permlink']}-{int(time.time())}"
-                    
                     logger.info(f"DEBUG: Attempting to comment on {post['author']}/{post['permlink']}")
-                    logger.info(f"DEBUG: Comment body: {comment_body}")
-                    logger.info(f"DEBUG: Comment permlink: {comment_permlink}")
+                    logger.info(f"DEBUG: Comment body: {welcome_message}")
                     
-                    # Post the comment
-                    parent_post.reply(
-                        body=comment_body,
-                        author=self.account_name,
-                        permlink=comment_permlink
-                    )
+                    # Create comment operation
+                    comment_op = {
+                        "parent_author": post['author'],
+                        "parent_permlink": post['permlink'], 
+                        "author": self.account_name,
+                        "permlink": f"re-{post['permlink']}-{int(time.time())}",
+                        "title": "",
+                        "body": welcome_message,
+                        "json_metadata": json.dumps({"app": "checkinecuador/1.0.0"})
+                    }
+                    
+                    # Broadcast comment
+                    self.hive.broadcast([["comment", comment_op]])
                     
                     logger.info(f"✅ REAL COMMENT POSTED to {post['author']}/{post['permlink']}")
                     return True
@@ -515,21 +512,23 @@ class HiveEcuadorBot:
             
             memo = self.config.get('hbd_transfer_memo', 'Welcome to Hive Ecuador!')
             
-            # Use hive-nectar for real blockchain transactions
-            if self.hive and NECTAR_AVAILABLE:
+            # Use lighthive for real blockchain transactions
+            if self.hive and LIGHTHIVE_AVAILABLE:
                 try:
                     logger.info(f"DEBUG: Attempting to send {amount} HBD to {recipient}")
                     logger.info(f"DEBUG: Memo: {memo}")
                     logger.info(f"DEBUG: Current balance: {current_balance} HBD")
                     
-                    # Send the transfer using the hive instance
-                    self.hive.transfer(
-                        to=recipient,
-                        amount=amount,
-                        asset="HBD",
-                        memo=memo,
-                        account=self.account_name
-                    )
+                    # Create transfer operation
+                    transfer_op = {
+                        "from": self.account_name,
+                        "to": recipient,
+                        "amount": f"{amount:.3f} HBD",
+                        "memo": memo
+                    }
+                    
+                    # Broadcast transfer
+                    self.hive.broadcast([["transfer", transfer_op]])
                     
                     logger.info(f"✅ REAL HBD TRANSFER SENT: {amount} HBD to {recipient}")
                     return True
@@ -554,14 +553,21 @@ class HiveEcuadorBot:
                 logger.info(f"[DRY RUN] Would upvote {author}/{permlink} with {weight/100}%")
                 return True
             
-            # Use hive-nectar for real blockchain transactions
-            if self.hive and NECTAR_AVAILABLE:
+            # Use lighthive for real blockchain transactions
+            if self.hive and LIGHTHIVE_AVAILABLE:
                 try:
                     logger.info(f"DEBUG: Attempting to upvote {author}/{permlink} with {weight/100}%")
                     
-                    # Get the post and upvote it
-                    post = Comment(f"@{author}/{permlink}", hive_instance=self.hive)
-                    post.upvote(weight=weight/100.0, voter=self.account_name)
+                    # Create vote operation
+                    vote_op = {
+                        "voter": self.account_name,
+                        "author": author,
+                        "permlink": permlink,
+                        "weight": weight
+                    }
+                    
+                    # Broadcast vote
+                    self.hive.broadcast([["vote", vote_op]])
                     
                     logger.info(f"✅ REAL UPVOTE GIVEN: {author}/{permlink} with {weight/100}%")
                     return True
