@@ -26,6 +26,17 @@ from dotenv import load_dotenv
 import requests
 from dataclasses import dataclass
 
+# Hive blockchain imports
+try:
+    from beem import Hive
+    from beem.account import Account
+    from beem.comment import Comment
+    from beem.exceptions import AccountDoesNotExistsException, WalletLocked
+    BEEM_AVAILABLE = True
+except ImportError:
+    BEEM_AVAILABLE = False
+    logging.warning("beem library not available - blockchain transactions will be simulated")
+
 # Load environment variables
 load_dotenv()
 
@@ -210,8 +221,21 @@ class HiveEcuadorBot:
             'User-Agent': 'HiveEcuadorBot/1.0'
         })
         
+        # Initialize beem for blockchain transactions
+        self.hive = None
+        if BEEM_AVAILABLE:
+            try:
+                self.hive = Hive(node=self.hive_node, keys=[self.posting_key, self.active_key])
+                logger.info("Beem initialized successfully for blockchain transactions")
+            except Exception as e:
+                logger.error(f"Failed to initialize beem: {e}")
+                self.hive = None
+        else:
+            logger.warning("Beem not available - transactions will be simulated")
+        
         logger.info(f"Bot initialized for community: {self.config.get('community')}")
         logger.info(f"Dry run mode: {self.config.get('dry_run', False)}")
+        logger.info(f"Blockchain transactions enabled: {self.hive is not None}")
     
     def load_config(self, config_path: str) -> Dict:
         """Load configuration from JSON file."""
@@ -432,13 +456,41 @@ class HiveEcuadorBot:
             
             welcome_message = self.config.get('welcome_message', 'Welcome to Hive Ecuador!')
             
-            # TODO: Implement actual comment posting
-            # This would require transaction signing which needs additional setup
-            logger.info(f"[SIMULATED] Sent welcome comment to {post['author']}/{post['permlink']}")
-            return True
+            # Use beem for real blockchain transactions
+            if self.hive and BEEM_AVAILABLE:
+                try:
+                    # Get the parent post
+                    parent_post = Comment(f"@{post['author']}/{post['permlink']}", hive_instance=self.hive)
+                    
+                    # Create comment
+                    comment_body = welcome_message
+                    comment_permlink = f"re-{post['permlink']}-{int(time.time())}"
+                    
+                    logger.info(f"DEBUG: Attempting to comment on {post['author']}/{post['permlink']}")
+                    logger.info(f"DEBUG: Comment body: {comment_body}")
+                    logger.info(f"DEBUG: Comment permlink: {comment_permlink}")
+                    
+                    # Post the comment
+                    parent_post.reply(
+                        body=comment_body,
+                        author=self.account_name,
+                        permlink=comment_permlink
+                    )
+                    
+                    logger.info(f"✅ REAL COMMENT POSTED to {post['author']}/{post['permlink']}")
+                    return True
+                    
+                except Exception as e:
+                    logger.error(f"❌ FAILED to post comment: {e}")
+                    logger.error(f"Error details: {type(e).__name__}: {str(e)}")
+                    return False
+            else:
+                logger.warning("❌ Beem not available - simulating comment")
+                logger.info(f"[SIMULATED] Sent welcome comment to {post['author']}/{post['permlink']}")
+                return True
             
         except Exception as e:
-            logger.error(f"Error sending welcome comment: {e}")
+            logger.error(f"❌ Error sending welcome comment: {e}")
             return False
     
     def send_hbd_transfer(self, recipient: str, amount: float) -> bool:
@@ -450,25 +502,48 @@ class HiveEcuadorBot:
             
             # Check if we can send more transfers today
             if not self.db.can_send_transfer_today(self.config.get('max_daily_transfers', 10)):
-                logger.warning("Daily transfer limit reached")
+                logger.warning("❌ Daily transfer limit reached")
                 return False
             
             # Check minimum balance
             current_balance = self.get_account_balance()
             min_balance = self.config.get('min_account_balance', 5.0)
             if current_balance < min_balance:
-                logger.warning(f"Insufficient balance: {current_balance} HBD (minimum: {min_balance})")
+                logger.warning(f"❌ Insufficient balance: {current_balance} HBD (minimum: {min_balance})")
                 return False
             
             memo = self.config.get('hbd_transfer_memo', 'Welcome to Hive Ecuador!')
             
-            # TODO: Implement actual HBD transfer
-            # This would require transaction signing which needs additional setup
-            logger.info(f"[SIMULATED] Sent {amount} HBD to {recipient}")
-            return True
+            # Use beem for real blockchain transactions
+            if self.hive and BEEM_AVAILABLE:
+                try:
+                    logger.info(f"DEBUG: Attempting to send {amount} HBD to {recipient}")
+                    logger.info(f"DEBUG: Memo: {memo}")
+                    logger.info(f"DEBUG: Current balance: {current_balance} HBD")
+                    
+                    # Send the transfer using the hive instance
+                    self.hive.transfer(
+                        to=recipient,
+                        amount=amount,
+                        asset="HBD",
+                        memo=memo,
+                        account=self.account_name
+                    )
+                    
+                    logger.info(f"✅ REAL HBD TRANSFER SENT: {amount} HBD to {recipient}")
+                    return True
+                    
+                except Exception as e:
+                    logger.error(f"❌ FAILED to send HBD transfer: {e}")
+                    logger.error(f"Error details: {type(e).__name__}: {str(e)}")
+                    return False
+            else:
+                logger.warning("❌ Beem not available - simulating transfer")
+                logger.info(f"[SIMULATED] Sent {amount} HBD to {recipient}")
+                return True
             
         except Exception as e:
-            logger.error(f"Error sending HBD transfer: {e}")
+            logger.error(f"❌ Error sending HBD transfer: {e}")
             return False
     
     def upvote_post(self, author: str, permlink: str, weight: int = 10000) -> bool:
@@ -478,13 +553,29 @@ class HiveEcuadorBot:
                 logger.info(f"[DRY RUN] Would upvote {author}/{permlink} with {weight/100}%")
                 return True
             
-            # TODO: Implement actual upvoting
-            # This would require transaction signing which needs additional setup
-            logger.info(f"[SIMULATED] Upvoted {author}/{permlink} with {weight/100}%")
-            return True
+            # Use beem for real blockchain transactions
+            if self.hive and BEEM_AVAILABLE:
+                try:
+                    logger.info(f"DEBUG: Attempting to upvote {author}/{permlink} with {weight/100}%")
+                    
+                    # Get the post and upvote it
+                    post = Comment(f"@{author}/{permlink}", hive_instance=self.hive)
+                    post.upvote(weight=weight/100.0, voter=self.account_name)
+                    
+                    logger.info(f"✅ REAL UPVOTE GIVEN: {author}/{permlink} with {weight/100}%")
+                    return True
+                    
+                except Exception as e:
+                    logger.error(f"❌ FAILED to upvote post: {e}")
+                    logger.error(f"Error details: {type(e).__name__}: {str(e)}")
+                    return False
+            else:
+                logger.warning("❌ Beem not available - simulating upvote")
+                logger.info(f"[SIMULATED] Upvoted {author}/{permlink} with {weight/100}%")
+                return True
             
         except Exception as e:
-            logger.error(f"Error upvoting post: {e}")
+            logger.error(f"❌ Error upvoting post: {e}")
             return False
     
     def process_post(self, post: Dict) -> bool:
@@ -501,20 +592,35 @@ class HiveEcuadorBot:
             
             logger.info(f"Processing valid post: {author}/{permlink}")
             
-            # Perform actions
-            commented = self.send_welcome_comment(post)
+            # Perform actions - only record success if they actually work
+            commented = False
             hbd_sent = 0.0
             upvoted = False
             
-            if commented:
-                transfer_amount = self.config.get('transfer_amount', 1.0)
-                if self.send_hbd_transfer(author, transfer_amount):
-                    hbd_sent = transfer_amount
-                
-                upvote_weight = self.config.get('upvote_percentage', 100) * 100  # Convert to weight
-                upvoted = self.upvote_post(author, permlink, upvote_weight)
+            # Try to send comment
+            if self.send_welcome_comment(post):
+                commented = True
+                logger.info(f"✅ Comment successful for {author}/{permlink}")
+            else:
+                logger.error(f"❌ Comment failed for {author}/{permlink}")
             
-            # Record in database
+            # Try to send HBD transfer
+            transfer_amount = self.config.get('transfer_amount', 1.0)
+            if self.send_hbd_transfer(author, transfer_amount):
+                hbd_sent = transfer_amount
+                logger.info(f"✅ HBD transfer successful: {transfer_amount} HBD to {author}")
+            else:
+                logger.error(f"❌ HBD transfer failed to {author}")
+            
+            # Try to upvote
+            upvote_weight = self.config.get('upvote_percentage', 100) * 100  # Convert to weight
+            if self.upvote_post(author, permlink, upvote_weight):
+                upvoted = True
+                logger.info(f"✅ Upvote successful for {author}/{permlink}")
+            else:
+                logger.error(f"❌ Upvote failed for {author}/{permlink}")
+            
+            # Record in database - only what actually succeeded
             self.db.record_processed_post(author, permlink, hbd_sent, upvoted, commented)
             
             # Update stats
@@ -524,11 +630,24 @@ class HiveEcuadorBot:
                 upvotes_given=1 if upvoted else 0
             )
             
-            logger.info(f"Successfully processed post {author}/{permlink}")
+            # Summary log
+            actions_summary = []
+            if commented:
+                actions_summary.append("comment")
+            if hbd_sent > 0:
+                actions_summary.append(f"{hbd_sent} HBD transfer")
+            if upvoted:
+                actions_summary.append("upvote")
+            
+            if actions_summary:
+                logger.info(f"✅ Successfully processed post {author}/{permlink}: {', '.join(actions_summary)}")
+            else:
+                logger.warning(f"⚠️  Post {author}/{permlink} was processed but no actions succeeded")
+            
             return True
             
         except Exception as e:
-            logger.error(f"Error processing post: {e}")
+            logger.error(f"❌ Error processing post: {e}")
             self.db.update_daily_stats(errors=1)
             return False
     
