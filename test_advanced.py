@@ -60,6 +60,10 @@ def test_database_operations():
     """Test database operations."""
     print("\nTesting database operations...")
     try:
+        # Remove any existing test database to start fresh
+        if os.path.exists("test_processed_posts.db"):
+            os.remove("test_processed_posts.db")
+        
         # Use a test database
         db = DatabaseManager("test_processed_posts.db")
         
