@@ -305,7 +305,8 @@ class HiveEcuadorBot:
                     'body': post_data['body'],
                     'created': post_data['created'],
                     'json_metadata': post_data.get('json_metadata', {}),
-                    'extensions': post_data.get('extensions', [])
+                    'extensions': post_data.get('extensions', []),
+                    'beneficiaries': post_data.get('beneficiaries', [])  # Add direct beneficiaries field
                 }
                 posts.append(post)
             
@@ -354,14 +355,20 @@ class HiveEcuadorBot:
         if missing_tags:
             reasons.append(f"Missing required tags: {missing_tags}")
         
-        # Check beneficiaries (can be in json_metadata or extensions)
+        # Check beneficiaries (can be in json_metadata, extensions, or direct field)
         required_beneficiaries = required_metadata.get('beneficiaries', [])
         post_beneficiaries = json_metadata.get('beneficiaries', [])
         
         logger.info(f"DEBUG: Required beneficiaries: {required_beneficiaries}")
         logger.info(f"DEBUG: Beneficiaries from json_metadata: {post_beneficiaries}")
         
-        # Also check extensions field for beneficiaries (where they're actually stored)
+        # Check direct beneficiaries field (where they're actually stored in API response)
+        direct_beneficiaries = post.get('beneficiaries', [])
+        logger.info(f"DEBUG: Direct beneficiaries from API: {direct_beneficiaries}")
+        if direct_beneficiaries:
+            post_beneficiaries.extend(direct_beneficiaries)
+        
+        # Also check extensions field for beneficiaries (fallback)
         extensions = post.get('extensions', [])
         logger.info(f"DEBUG: Extensions to check: {extensions}")
         
