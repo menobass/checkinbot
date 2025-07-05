@@ -1,4 +1,5 @@
-beem>=0.24.0
+lighthive>=0.4.0
 python-dotenv>=1.0.0
 requests>=2.31.0
 schedule>=1.2.0
+# beem>=0.24.0  # Legacy support, commented out due to Windows compilation issues

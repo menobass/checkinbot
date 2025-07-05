@@ -28,6 +28,14 @@ from dataclasses import dataclass
 
 # Hive blockchain imports
 try:
+    from lighthive.client import Client
+    LIGHTHIVE_AVAILABLE = True
+except ImportError:
+    LIGHTHIVE_AVAILABLE = False
+    logging.warning("lighthive library not available - blockchain transactions will be simulated")
+
+# Legacy beem support (fallback)
+try:
     from beem import Hive
     from beem.account import Account
     from beem.comment import Comment
@@ -35,7 +43,8 @@ try:
     BEEM_AVAILABLE = True
 except ImportError:
     BEEM_AVAILABLE = False
-    logging.warning("beem library not available - blockchain transactions will be simulated")
+    if not LIGHTHIVE_AVAILABLE:
+        logging.warning("No Hive blockchain library available - transactions will be simulated")
 
 # Load environment variables
 load_dotenv()
@@ -221,9 +230,19 @@ class HiveEcuadorBot:
             'User-Agent': 'HiveEcuadorBot/1.0'
         })
         
-        # Initialize beem for blockchain transactions
-        self.hive = None
-        if BEEM_AVAILABLE:
+        # Initialize hive client for blockchain transactions
+        self.hive_client = None
+        if LIGHTHIVE_AVAILABLE:
+            try:
+                self.hive_client = Client(
+                    nodes=[self.hive_node],
+                    keys=[self.posting_key, self.active_key]
+                )
+                logger.info("Lighthive client initialized successfully for blockchain transactions")
+            except Exception as e:
+                logger.error(f"Failed to initialize lighthive client: {e}")
+                self.hive_client = None
+        elif BEEM_AVAILABLE:
             try:
                 self.hive = Hive(node=self.hive_node, keys=[self.posting_key, self.active_key])
                 logger.info("Beem initialized successfully for blockchain transactions")
@@ -231,11 +250,11 @@ class HiveEcuadorBot:
                 logger.error(f"Failed to initialize beem: {e}")
                 self.hive = None
         else:
-            logger.warning("Beem not available - transactions will be simulated")
+            logger.warning("No Hive blockchain library available - transactions will be simulated")
         
         logger.info(f"Bot initialized for community: {self.config.get('community')}")
         logger.info(f"Dry run mode: {self.config.get('dry_run', False)}")
-        logger.info(f"Blockchain transactions enabled: {self.hive is not None}")
+        logger.info(f"Blockchain transactions enabled: {self.hive_client is not None or (hasattr(self, 'hive') and self.hive is not None)}")
     
     def load_config(self, config_path: str) -> Dict:
         """Load configuration from JSON file."""
@@ -456,12 +475,9 @@ class HiveEcuadorBot:
             
             welcome_message = self.config.get('welcome_message', 'Welcome to Hive Ecuador!')
             
-            # Use beem for real blockchain transactions
-            if self.hive and BEEM_AVAILABLE:
+            # Use lighthive for real blockchain transactions
+            if self.hive_client and LIGHTHIVE_AVAILABLE:
                 try:
-                    # Get the parent post
-                    parent_post = Comment(f"@{post['author']}/{post['permlink']}", hive_instance=self.hive)
-                    
                     # Create comment
                     comment_body = welcome_message
                     comment_permlink = f"re-{post['permlink']}-{int(time.time())}"
@@ -470,6 +486,43 @@ class HiveEcuadorBot:
                     logger.info(f"DEBUG: Comment body: {comment_body}")
                     logger.info(f"DEBUG: Comment permlink: {comment_permlink}")
                     
+                    # Post the comment using lighthive
+                    op = {
+                        'parent_author': post['author'],
+                        'parent_permlink': post['permlink'],
+                        'author': self.account_name,
+                        'permlink': comment_permlink,
+                        'title': '',
+                        'body': comment_body,
+                        'json_metadata': '{"tags":["checkinecuador"]}'
+                    }
+                    
+                    result = self.hive_client.broadcast_operation('comment', op)
+                    
+                    if result:
+                        logger.info(f"✅ REAL COMMENT POSTED to {post['author']}/{post['permlink']}")
+                        return True
+                    else:
+                        logger.error(f"❌ Failed to post comment - no result returned")
+                        return False
+                    
+                except Exception as e:
+                    logger.error(f"❌ FAILED to post comment: {e}")
+                    logger.error(f"Error details: {type(e).__name__}: {str(e)}")
+                    return False
+            
+            # Fallback to beem if available
+            elif hasattr(self, 'hive') and self.hive and BEEM_AVAILABLE:
+                try:
+                    # Get the parent post
+                    parent_post = Comment(f"@{post['author']}/{post['permlink']}", hive_instance=self.hive)
+                    
+                    # Create comment
+                    comment_body = welcome_message
+                    comment_permlink = f"re-{post['permlink']}-{int(time.time())}"
+                    
+                    logger.info(f"DEBUG: Attempting to comment on {post['author']}/{post['permlink']} using beem")
+                    
                     # Post the comment
                     parent_post.reply(
                         body=comment_body,
@@ -477,15 +530,15 @@ class HiveEcuadorBot:
                         permlink=comment_permlink
                     )
                     
-                    logger.info(f"✅ REAL COMMENT POSTED to {post['author']}/{post['permlink']}")
+                    logger.info(f"✅ REAL COMMENT POSTED to {post['author']}/{post['permlink']} (beem)")
                     return True
                     
                 except Exception as e:
-                    logger.error(f"❌ FAILED to post comment: {e}")
+                    logger.error(f"❌ FAILED to post comment (beem): {e}")
                     logger.error(f"Error details: {type(e).__name__}: {str(e)}")
                     return False
             else:
-                logger.warning("❌ Beem not available - simulating comment")
+                logger.warning("❌ No blockchain library available - simulating comment")
                 logger.info(f"[SIMULATED] Sent welcome comment to {post['author']}/{post['permlink']}")
                 return True
             
@@ -514,12 +567,39 @@ class HiveEcuadorBot:
             
             memo = self.config.get('hbd_transfer_memo', 'Welcome to Hive Ecuador!')
             
-            # Use beem for real blockchain transactions
-            if self.hive and BEEM_AVAILABLE:
+            # Use lighthive for real blockchain transactions
+            if self.hive_client and LIGHTHIVE_AVAILABLE:
                 try:
                     logger.info(f"DEBUG: Attempting to send {amount} HBD to {recipient}")
                     logger.info(f"DEBUG: Memo: {memo}")
                     logger.info(f"DEBUG: Current balance: {current_balance} HBD")
+                    
+                    # Send the transfer using lighthive
+                    op = {
+                        'from': self.account_name,
+                        'to': recipient,
+                        'amount': f"{amount:.3f} HBD",
+                        'memo': memo
+                    }
+                    
+                    result = self.hive_client.broadcast_operation('transfer', op)
+                    
+                    if result:
+                        logger.info(f"✅ REAL HBD TRANSFER SENT: {amount} HBD to {recipient}")
+                        return True
+                    else:
+                        logger.error(f"❌ Failed to send HBD transfer - no result returned")
+                        return False
+                    
+                except Exception as e:
+                    logger.error(f"❌ FAILED to send HBD transfer: {e}")
+                    logger.error(f"Error details: {type(e).__name__}: {str(e)}")
+                    return False
+            
+            # Fallback to beem if available
+            elif hasattr(self, 'hive') and self.hive and BEEM_AVAILABLE:
+                try:
+                    logger.info(f"DEBUG: Attempting to send {amount} HBD to {recipient} using beem")
                     
                     # Send the transfer using the hive instance
                     self.hive.transfer(
@@ -530,15 +610,15 @@ class HiveEcuadorBot:
                         account=self.account_name
                     )
                     
-                    logger.info(f"✅ REAL HBD TRANSFER SENT: {amount} HBD to {recipient}")
+                    logger.info(f"✅ REAL HBD TRANSFER SENT: {amount} HBD to {recipient} (beem)")
                     return True
                     
                 except Exception as e:
-                    logger.error(f"❌ FAILED to send HBD transfer: {e}")
+                    logger.error(f"❌ FAILED to send HBD transfer (beem): {e}")
                     logger.error(f"Error details: {type(e).__name__}: {str(e)}")
                     return False
             else:
-                logger.warning("❌ Beem not available - simulating transfer")
+                logger.warning("❌ No blockchain library available - simulating transfer")
                 logger.info(f"[SIMULATED] Sent {amount} HBD to {recipient}")
                 return True
             
@@ -553,24 +633,51 @@ class HiveEcuadorBot:
                 logger.info(f"[DRY RUN] Would upvote {author}/{permlink} with {weight/100}%")
                 return True
             
-            # Use beem for real blockchain transactions
-            if self.hive and BEEM_AVAILABLE:
+            # Use lighthive for real blockchain transactions
+            if self.hive_client and LIGHTHIVE_AVAILABLE:
                 try:
                     logger.info(f"DEBUG: Attempting to upvote {author}/{permlink} with {weight/100}%")
                     
-                    # Get the post and upvote it
-                    post = Comment(f"@{author}/{permlink}", hive_instance=self.hive)
-                    post.upvote(weight=weight/100.0, voter=self.account_name)
+                    # Create vote operation
+                    op = {
+                        'voter': self.account_name,
+                        'author': author,
+                        'permlink': permlink,
+                        'weight': weight
+                    }
                     
-                    logger.info(f"✅ REAL UPVOTE GIVEN: {author}/{permlink} with {weight/100}%")
-                    return True
+                    result = self.hive_client.broadcast_operation('vote', op)
+                    
+                    if result:
+                        logger.info(f"✅ REAL UPVOTE GIVEN: {author}/{permlink} with {weight/100}%")
+                        return True
+                    else:
+                        logger.error(f"❌ Failed to upvote post - no result returned")
+                        return False
                     
                 except Exception as e:
                     logger.error(f"❌ FAILED to upvote post: {e}")
                     logger.error(f"Error details: {type(e).__name__}: {str(e)}")
                     return False
+            
+            # Fallback to beem if available
+            elif hasattr(self, 'hive') and self.hive and BEEM_AVAILABLE:
+                try:
+                    logger.info(f"DEBUG: Attempting to upvote {author}/{permlink} with {weight/100}% using beem")
+                    
+                    # Get the post and upvote it
+                    post = Comment(f"@{author}/{permlink}", hive_instance=self.hive)
+                    post.upvote(weight=weight/100.0, voter=self.account_name)
+                    
+                    logger.info(f"✅ REAL UPVOTE GIVEN: {author}/{permlink} with {weight/100}% (beem)")
+                    return True
+                    
+                except Exception as e:
+                    logger.error(f"❌ FAILED to upvote post (beem): {e}")
+                    logger.error(f"Error details: {type(e).__name__}: {str(e)}")
+                    return False
             else:
-                logger.warning("❌ Beem not available - simulating upvote")
+                logger.warning("❌ No blockchain library available - simulating upvote")
                 logger.info(f"[SIMULATED] Upvoted {author}/{permlink} with {weight/100}%")
                 return True
             

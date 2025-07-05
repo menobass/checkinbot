@@ -24,7 +24,7 @@ try:
             bot = HiveEcuadorBot()
             print(f"✅ Bot initialized successfully")
             print(f"   - Account: {bot.account_name}")
-            print(f"   - Beem available: {bot.hive is not None}")
+            print(f"   - Lighthive available: {bot.hive_client is not None}")
             print(f"   - Dry run mode: {bot.config.get('dry_run', False)}")
             
             # Check balance
@@ -32,11 +32,11 @@ try:
             print(f"   - Current HBD balance: {balance}")
             
             # Check if we have the required credentials
-            if not bot.hive:
-                print("❌ WARNING: Beem not properly initialized!")
+            if not bot.hive_client:
+                print("❌ WARNING: Lighthive client not properly initialized!")
                 print("   This means blockchain transactions will be simulated only.")
                 print("   Possible issues:")
-                print("   - Missing beem library installation")
+                print("   - Missing lighthive library installation")
                 print("   - Invalid credentials")
                 print("   - Network connection issues")
                 return False
