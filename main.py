@@ -317,6 +317,10 @@ class HiveEcuadorBot:
         reasons = []
         required_metadata = self.config.get('required_metadata', {})
         
+        # Add debug logging
+        logger.debug(f"Validating post by {post.get('author')}: {post.get('permlink')}")
+        logger.debug(f"Post extensions: {post.get('extensions', [])}")
+        
         # Parse json_metadata if it's a string
         json_metadata = post.get('json_metadata', {})
         if isinstance(json_metadata, str):
@@ -325,6 +329,8 @@ class HiveEcuadorBot:
             except json.JSONDecodeError:
                 reasons.append("Invalid JSON metadata")
                 return PostValidation(False, reasons, post)
+        
+        logger.debug(f"Post json_metadata: {json_metadata}")
         
         # Check app field
         required_app = required_metadata.get('app')
@@ -343,9 +349,17 @@ class HiveEcuadorBot:
         if missing_tags:
             reasons.append(f"Missing required tags: {missing_tags}")
         
-        # Check beneficiaries
+        # Check beneficiaries (can be in json_metadata or extensions)
         required_beneficiaries = required_metadata.get('beneficiaries', [])
         post_beneficiaries = json_metadata.get('beneficiaries', [])
+        
+        # Also check extensions field for beneficiaries (where they're actually stored)
+        extensions = post.get('extensions', [])
+        for ext in extensions:
+            if isinstance(ext, list) and len(ext) >= 2 and ext[0] == 0:
+                # Beneficiary extension format: [0, {"beneficiaries": [...]}]
+                if isinstance(ext[1], dict) and 'beneficiaries' in ext[1]:
+                    post_beneficiaries.extend(ext[1]['beneficiaries'])
         
         for req_ben in required_beneficiaries:
             found = False
@@ -377,7 +391,7 @@ class HiveEcuadorBot:
         if is_valid:
             logger.info(f"Post {post['permlink']} by {post['author']} passed validation")
         else:
-            logger.debug(f"Post {post['permlink']} by {post['author']} failed validation: {reasons}")
+            logger.info(f"Post {post['permlink']} by {post['author']} failed validation: {reasons}")
         
         return PostValidation(is_valid, reasons, post)
     
