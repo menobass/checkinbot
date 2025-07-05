@@ -221,21 +221,26 @@ class HiveEcuadorBot:
             'User-Agent': 'HiveEcuadorBot/1.0'
         })
         
-        # Initialize hive client for blockchain transactions
-        self.hive = None
+        # Initialize hive clients for blockchain transactions
+        self.hive_posting = None
+        self.hive_active = None
+        
         if LIGHTHIVE_AVAILABLE:
             try:
-                self.hive = Client(nodes=[self.hive_node], keys=[self.posting_key, self.active_key])
+                # Separate clients for different key types
+                self.hive_posting = Client(nodes=[self.hive_node], keys=[self.posting_key])
+                self.hive_active = Client(nodes=[self.hive_node], keys=[self.active_key])
                 logger.info("Lighthive initialized successfully for blockchain transactions")
             except Exception as e:
                 logger.error(f"Failed to initialize lighthive: {e}")
-                self.hive = None
+                self.hive_posting = None
+                self.hive_active = None
         else:
             logger.warning("No Hive blockchain library available - transactions will be simulated")
         
         logger.info(f"Bot initialized for community: {self.config.get('community')}")
         logger.info(f"Dry run mode: {self.config.get('dry_run', False)}")
-        logger.info(f"Blockchain transactions enabled: {self.hive is not None}")
+        logger.info(f"Blockchain transactions enabled: {self.hive_posting is not None and self.hive_active is not None}")
     
     def load_config(self, config_path: str) -> Dict:
         """Load configuration from JSON file."""
@@ -457,7 +462,7 @@ class HiveEcuadorBot:
             welcome_message = self.config.get('welcome_message', 'Welcome to Hive Ecuador!')
             
             # Use lighthive for real blockchain transactions
-            if self.hive and LIGHTHIVE_AVAILABLE:
+            if self.hive_posting and LIGHTHIVE_AVAILABLE:
                 try:
                     logger.info(f"DEBUG: Attempting to comment on {post['author']}/{post['permlink']}")
                     logger.info(f"DEBUG: Comment body: {welcome_message}")
@@ -473,8 +478,8 @@ class HiveEcuadorBot:
                         "json_metadata": json.dumps({"app": "checkinecuador/1.0.0"})
                     })
                     
-                    # Broadcast comment
-                    self.hive.broadcast(comment_op)
+                    # Broadcast comment using posting key
+                    self.hive_posting.broadcast(comment_op)
                     
                     logger.info(f"✅ REAL COMMENT POSTED to {post['author']}/{post['permlink']}")
                     return True
@@ -514,7 +519,7 @@ class HiveEcuadorBot:
             memo = self.config.get('hbd_transfer_memo', 'Welcome to Hive Ecuador!')
             
             # Use lighthive for real blockchain transactions
-            if self.hive and LIGHTHIVE_AVAILABLE:
+            if self.hive_active and LIGHTHIVE_AVAILABLE:
                 try:
                     logger.info(f"DEBUG: Attempting to send {amount} HBD to {recipient}")
                     logger.info(f"DEBUG: Memo: {memo}")
@@ -528,8 +533,8 @@ class HiveEcuadorBot:
                         'memo': memo
                     })
                     
-                    # Broadcast transfer
-                    self.hive.broadcast(transfer_op)
+                    # Broadcast transfer using active key
+                    self.hive_active.broadcast(transfer_op)
                     
                     logger.info(f"✅ REAL HBD TRANSFER SENT: {amount} HBD to {recipient}")
                     return True
@@ -555,7 +560,7 @@ class HiveEcuadorBot:
                 return True
             
             # Use lighthive for real blockchain transactions
-            if self.hive and LIGHTHIVE_AVAILABLE:
+            if self.hive_posting and LIGHTHIVE_AVAILABLE:
                 try:
                     logger.info(f"DEBUG: Attempting to upvote {author}/{permlink} with {weight/100}%")
                     
@@ -567,8 +572,8 @@ class HiveEcuadorBot:
                         "weight": weight
                     })
                     
-                    # Broadcast vote
-                    self.hive.broadcast(vote_op)
+                    # Broadcast vote using posting key
+                    self.hive_posting.broadcast(vote_op)
                     
                     logger.info(f"✅ REAL UPVOTE GIVEN: {author}/{permlink} with {weight/100}%")
                     return True
