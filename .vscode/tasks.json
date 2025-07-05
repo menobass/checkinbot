@@ -1,0 +1,67 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Install Dependencies",
+			"type": "shell",
+			"command": "C:/Users/menob/Documents/checkinbot/.venv/Scripts/pip.exe",
+			"args": [
+				"install",
+				"-r",
+				"requirements.txt"
+			],
+			"group": "build",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Test Bot Configuration",
+			"type": "shell",
+			"command": "C:/Users/menob/Documents/checkinbot/.venv/Scripts/python.exe",
+			"args": ["test_bot.py"],
+			"group": "test",
+			"presentation": {
+				"reveal": "always",
+				"panel": "new"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Test Advanced Bot",
+			"type": "shell",
+			"command": "C:/Users/menob/Documents/checkinbot/.venv/Scripts/python.exe",
+			"args": ["test_advanced.py"],
+			"group": "test",
+			"presentation": {
+				"reveal": "always",
+				"panel": "new"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "View Dashboard",
+			"type": "shell",
+			"command": "C:/Users/menob/Documents/checkinbot/.venv/Scripts/python.exe",
+			"args": ["dashboard.py"],
+			"group": "test",
+			"presentation": {
+				"reveal": "always",
+				"panel": "new"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Run Hive Bot",
+			"type": "shell",
+			"command": "C:/Users/menob/Documents/checkinbot/.venv/Scripts/python.exe",
+			"args": ["main.py"],
+			"group": "build",
+			"presentation": {
+				"reveal": "always",
+				"panel": "new"
+			},
+			"problemMatcher": [],
+			"isBackground": true
+		}
+	]
+}

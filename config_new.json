@@ -1,0 +1,26 @@
+{
+  "community": "hive-115276",
+  "required_metadata": {
+    "app": "checkinecuador/1.0.0",
+    "developer": "menobass",
+    "tags": ["introduceyourself", "checkin"],
+    "beneficiaries": [
+      {
+        "account": "hiveecuador",
+        "weight": 8000
+      }
+    ],
+    "country": "Ecuador",
+    "required_fields": ["onboarder", "image"]
+  },
+  "welcome_message": "¡Bienvenido a la comunidad de Hive Ecuador! 🇪🇨\n\n¡Qué emocionante tenerte aquí! Tu post de introducción es exactamente lo que necesitamos para fortalecer nuestra comunidad ecuatoriana en Hive.\n\nComo parte de tu bienvenida, he enviado **1 HBD** a tu cuenta - ¡tu primera ganancia en Hive! 💰\n\n**Algunos consejos para comenzar:**\n- Participa en nuestra comunidad regularmente\n- Comparte contenido auténtico sobre Ecuador\n- Conecta con otros hivers ecuatorianos\n- ¡Disfruta de esta increíble plataforma descentralizada!\n\n**¡Tu journey en Hive comienza ahora!** 🚀\n\nSaludos desde la comunidad,\n@checkinecuador\n\n#HiveEcuador #Bienvenida #CheckinEcuador",
+  "hbd_transfer_memo": "Bienvenido a Hive Ecuador! 🇪🇨",
+  "check_interval": 60,
+  "transfer_amount": 1.0,
+  "upvote_percentage": 100,
+  "max_daily_transfers": 10,
+  "min_account_balance": 5.0,
+  "dry_run": false,
+  "database_file": "processed_posts.db",
+  "log_file": "bot.log"
+}
