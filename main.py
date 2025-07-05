@@ -293,6 +293,10 @@ class HiveEcuadorBot:
                 if datetime.now() - created_time > timedelta(hours=24):
                     continue
                 
+                # Debug: log what fields are available
+                logger.debug(f"Available fields in post_data: {list(post_data.keys())}")
+                logger.debug(f"Extensions in post_data: {post_data.get('extensions', 'NOT FOUND')}")
+                
                 post = {
                     'id': f"{post_data['author']}/{post_data['permlink']}",
                     'author': post_data['author'],
@@ -300,7 +304,8 @@ class HiveEcuadorBot:
                     'title': post_data['title'],
                     'body': post_data['body'],
                     'created': post_data['created'],
-                    'json_metadata': post_data.get('json_metadata', {})
+                    'json_metadata': post_data.get('json_metadata', {}),
+                    'extensions': post_data.get('extensions', [])
                 }
                 posts.append(post)
             
