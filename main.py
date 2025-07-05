@@ -26,6 +26,13 @@ from dotenv import load_dotenv
 import requests
 from dataclasses import dataclass
 
+# Keep alive for Replit (optional)
+try:
+    from keep_alive import keep_alive
+    KEEP_ALIVE_AVAILABLE = True
+except ImportError:
+    KEEP_ALIVE_AVAILABLE = False
+
 # Hive blockchain imports (using lighthive)
 try:
     from lighthive.client import Client
@@ -680,6 +687,14 @@ class HiveEcuadorBot:
         """Main bot loop."""
         logger.info("Starting Hive Ecuador Check-in Bot...")
         logger.info(f"Monitoring community: {self.config.get('community')}")
+        
+        # Start keep alive web server for Replit (if available)
+        if KEEP_ALIVE_AVAILABLE:
+            try:
+                keep_alive()
+                logger.info("Keep alive web server started for Replit")
+            except Exception as e:
+                logger.warning(f"Could not start keep alive server: {e}")
         
         try:
             # Print initial stats
