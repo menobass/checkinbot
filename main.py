@@ -294,8 +294,8 @@ class HiveEcuadorBot:
                     continue
                 
                 # Debug: log what fields are available
-                logger.debug(f"Available fields in post_data: {list(post_data.keys())}")
-                logger.debug(f"Extensions in post_data: {post_data.get('extensions', 'NOT FOUND')}")
+                logger.info(f"DEBUG: Available fields in post_data: {list(post_data.keys())}")
+                logger.info(f"DEBUG: Extensions in post_data: {post_data.get('extensions', 'NOT FOUND')}")
                 
                 post = {
                     'id': f"{post_data['author']}/{post_data['permlink']}",
@@ -323,8 +323,8 @@ class HiveEcuadorBot:
         required_metadata = self.config.get('required_metadata', {})
         
         # Add debug logging
-        logger.debug(f"Validating post by {post.get('author')}: {post.get('permlink')}")
-        logger.debug(f"Post extensions: {post.get('extensions', [])}")
+        logger.info(f"DEBUG: Validating post by {post.get('author')}: {post.get('permlink')}")
+        logger.info(f"DEBUG: Post extensions: {post.get('extensions', [])}")
         
         # Parse json_metadata if it's a string
         json_metadata = post.get('json_metadata', {})
@@ -335,7 +335,7 @@ class HiveEcuadorBot:
                 reasons.append("Invalid JSON metadata")
                 return PostValidation(False, reasons, post)
         
-        logger.debug(f"Post json_metadata: {json_metadata}")
+        logger.info(f"DEBUG: Post json_metadata: {json_metadata}")
         
         # Check app field
         required_app = required_metadata.get('app')
@@ -358,22 +358,38 @@ class HiveEcuadorBot:
         required_beneficiaries = required_metadata.get('beneficiaries', [])
         post_beneficiaries = json_metadata.get('beneficiaries', [])
         
+        logger.info(f"DEBUG: Required beneficiaries: {required_beneficiaries}")
+        logger.info(f"DEBUG: Beneficiaries from json_metadata: {post_beneficiaries}")
+        
         # Also check extensions field for beneficiaries (where they're actually stored)
         extensions = post.get('extensions', [])
+        logger.info(f"DEBUG: Extensions to check: {extensions}")
+        
         for ext in extensions:
+            logger.info(f"DEBUG: Processing extension: {ext}")
             if isinstance(ext, list) and len(ext) >= 2 and ext[0] == 0:
+                logger.info(f"DEBUG: Found beneficiary extension: {ext}")
                 # Beneficiary extension format: [0, {"beneficiaries": [...]}]
                 if isinstance(ext[1], dict) and 'beneficiaries' in ext[1]:
+                    logger.info(f"DEBUG: Found beneficiaries in extension: {ext[1]['beneficiaries']}")
                     post_beneficiaries.extend(ext[1]['beneficiaries'])
+        
+        logger.info(f"DEBUG: Final post_beneficiaries list: {post_beneficiaries}")
         
         for req_ben in required_beneficiaries:
             found = False
+            logger.info(f"DEBUG: Looking for required beneficiary: {req_ben}")
             for post_ben in post_beneficiaries:
+                logger.info(f"DEBUG: Checking against post beneficiary: {post_ben}")
+                logger.info(f"DEBUG: Account match: {post_ben.get('account')} == {req_ben.get('account')} -> {post_ben.get('account') == req_ben.get('account')}")
+                logger.info(f"DEBUG: Weight match: {post_ben.get('weight')} == {req_ben.get('weight')} -> {post_ben.get('weight') == req_ben.get('weight')}")
                 if (post_ben.get('account') == req_ben.get('account') and 
                     post_ben.get('weight') == req_ben.get('weight')):
                     found = True
+                    logger.info(f"DEBUG: Found matching beneficiary!")
                     break
             if not found:
+                logger.info(f"DEBUG: Missing beneficiary: {req_ben}")
                 reasons.append(f"Missing beneficiary: {req_ben}")
         
         # Check country
