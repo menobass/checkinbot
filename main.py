@@ -487,7 +487,7 @@ class HiveEcuadorBot:
                     logger.info(f"DEBUG: Comment permlink: {comment_permlink}")
                     
                     # Post the comment using lighthive
-                    op = {
+                    op = ['comment', {
                         'parent_author': post['author'],
                         'parent_permlink': post['permlink'],
                         'author': self.account_name,
@@ -495,9 +495,9 @@ class HiveEcuadorBot:
                         'title': '',
                         'body': comment_body,
                         'json_metadata': '{"tags":["checkinecuador"]}'
-                    }
+                    }]
                     
-                    result = self.hive_client.broadcast_operation('comment', op)
+                    result = self.hive_client.broadcast([op])
                     
                     if result:
                         logger.info(f"✅ REAL COMMENT POSTED to {post['author']}/{post['permlink']}")
@@ -575,14 +575,14 @@ class HiveEcuadorBot:
                     logger.info(f"DEBUG: Current balance: {current_balance} HBD")
                     
                     # Send the transfer using lighthive
-                    op = {
+                    op = ['transfer', {
                         'from': self.account_name,
                         'to': recipient,
                         'amount': f"{amount:.3f} HBD",
                         'memo': memo
-                    }
+                    }]
                     
-                    result = self.hive_client.broadcast_operation('transfer', op)
+                    result = self.hive_client.broadcast([op])
                     
                     if result:
                         logger.info(f"✅ REAL HBD TRANSFER SENT: {amount} HBD to {recipient}")
@@ -639,14 +639,14 @@ class HiveEcuadorBot:
                     logger.info(f"DEBUG: Attempting to upvote {author}/{permlink} with {weight/100}%")
                     
                     # Create vote operation
-                    op = {
+                    op = ['vote', {
                         'voter': self.account_name,
                         'author': author,
                         'permlink': permlink,
                         'weight': weight
-                    }
+                    }]
                     
-                    result = self.hive_client.broadcast_operation('vote', op)
+                    result = self.hive_client.broadcast([op])
                     
                     if result:
                         logger.info(f"✅ REAL UPVOTE GIVEN: {author}/{permlink} with {weight/100}%")
