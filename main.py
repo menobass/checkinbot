@@ -26,28 +26,17 @@ from dotenv import load_dotenv
 import requests
 from dataclasses import dataclass
 
-# Hive blockchain imports
+# Hive blockchain imports (hive-nectar uses beem-compatible API)
 try:
-    from nectar import Hive
-    from nectar.account import Account
-    from nectar.comment import Comment
-    from nectar.exceptions import AccountDoesNotExistsException, WalletLocked
+    from beem import Hive
+    from beem.account import Account
+    from beem.comment import Comment
+    from beem.exceptions import AccountDoesNotExistsException, WalletLocked
     NECTAR_AVAILABLE = True
+    logging.info("hive-nectar library imported successfully")
 except ImportError:
     NECTAR_AVAILABLE = False
     logging.warning("hive-nectar library not available - blockchain transactions will be simulated")
-
-# Legacy beem support (fallback)
-try:
-    from beem import Hive as BeemHive
-    from beem.account import Account as BeemAccount
-    from beem.comment import Comment as BeemComment
-    from beem.exceptions import AccountDoesNotExistsException as BeemAccountDoesNotExistsException, WalletLocked as BeemWalletLocked
-    BEEM_AVAILABLE = True
-except ImportError:
-    BEEM_AVAILABLE = False
-    if not NECTAR_AVAILABLE:
-        logging.warning("No Hive blockchain library available - transactions will be simulated")
 
 # Load environment variables
 load_dotenv()
@@ -241,13 +230,6 @@ class HiveEcuadorBot:
                 logger.info("Hive-nectar initialized successfully for blockchain transactions")
             except Exception as e:
                 logger.error(f"Failed to initialize hive-nectar: {e}")
-                self.hive = None
-        elif BEEM_AVAILABLE:
-            try:
-                self.hive = BeemHive(node=self.hive_node, keys=[self.posting_key, self.active_key])
-                logger.info("Beem initialized successfully for blockchain transactions")
-            except Exception as e:
-                logger.error(f"Failed to initialize beem: {e}")
                 self.hive = None
         else:
             logger.warning("No Hive blockchain library available - transactions will be simulated")
@@ -475,8 +457,8 @@ class HiveEcuadorBot:
             
             welcome_message = self.config.get('welcome_message', 'Welcome to Hive Ecuador!')
             
-            # Use nectar/beem for real blockchain transactions
-            if self.hive and (NECTAR_AVAILABLE or BEEM_AVAILABLE):
+            # Use hive-nectar for real blockchain transactions
+            if self.hive and NECTAR_AVAILABLE:
                 try:
                     # Get the parent post
                     parent_post = Comment(f"@{post['author']}/{post['permlink']}", hive_instance=self.hive)
@@ -533,8 +515,8 @@ class HiveEcuadorBot:
             
             memo = self.config.get('hbd_transfer_memo', 'Welcome to Hive Ecuador!')
             
-            # Use nectar/beem for real blockchain transactions
-            if self.hive and (NECTAR_AVAILABLE or BEEM_AVAILABLE):
+            # Use hive-nectar for real blockchain transactions
+            if self.hive and NECTAR_AVAILABLE:
                 try:
                     logger.info(f"DEBUG: Attempting to send {amount} HBD to {recipient}")
                     logger.info(f"DEBUG: Memo: {memo}")
@@ -572,8 +554,8 @@ class HiveEcuadorBot:
                 logger.info(f"[DRY RUN] Would upvote {author}/{permlink} with {weight/100}%")
                 return True
             
-            # Use nectar/beem for real blockchain transactions
-            if self.hive and (NECTAR_AVAILABLE or BEEM_AVAILABLE):
+            # Use hive-nectar for real blockchain transactions
+            if self.hive and NECTAR_AVAILABLE:
                 try:
                     logger.info(f"DEBUG: Attempting to upvote {author}/{permlink} with {weight/100}%")
                     
